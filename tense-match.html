@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<title>🧩 Tense Match — Clear the Tiles!</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; }
+  html, body {
+    height: 100%;
+    overflow-x: hidden;
+    font-family: 'Comic Sans MS', 'Chalkboard SE', 'Marker Felt', system-ui, sans-serif;
+    background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 50%, #93c5fd 100%);
+    color: #1f2937;
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    padding: 12px;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  /* Header */
+  header {
+    text-align: center;
+    padding: 4px 4px 0;
+  }
+  h1 {
+    font-size: clamp(1.2rem, 4.5vw, 1.7rem);
+    color: #1e40af;
+    text-shadow: 2px 2px 0 #fbbf24, 4px 4px 0 rgba(0,0,0,0.1);
+    margin-bottom: 2px;
+    letter-spacing: 0.5px;
+    line-height: 1.1;
+  }
+  .subtitle {
+    font-size: clamp(0.7rem, 2.5vw, 0.85rem);
+    color: #1e3a8a;
+    font-weight: 600;
+  }
+
+  /* Score bar */
+  .scorebar {
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    background: white;
+    border-radius: 12px;
+    padding: 6px 8px;
+    margin: 6px 0;
+    box-shadow: 0 3px 0 #2563eb, 0 4px 8px rgba(0,0,0,0.08);
+    border: 2px solid #3b82f6;
+  }
+  .score-item { text-align: center; flex: 1; }
+  .score-label { font-size: clamp(0.6rem, 2vw, 0.75rem); color: #6b7280; font-weight: 600; }
+  .score-value {
+    font-size: clamp(1.1rem, 4vw, 1.5rem);
+    font-weight: 800;
+    color: #1e40af;
+    line-height: 1;
+  }
+  .stars { color: #f59e0b; font-size: clamp(0.9rem, 3vw, 1.1rem); }
+
+  /* Game area */
+  .game-area {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 8px;
+    padding: 4px 0;
+  }
+
+  /* Prompt */
+  .prompt {
+    background: white;
+    border: 3px solid #3b82f6;
+    border-radius: 14px;
+    padding: 8px 14px;
+    text-align: center;
+    box-shadow: 0 3px 0 #1d4ed8, 0 4px 10px rgba(0,0,0,0.1);
+    width: 100%;
+    max-width: 480px;
+    animation: pop-in 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  .prompt-label {
+    font-size: clamp(0.7rem, 2.5vw, 0.85rem);
+    color: #1e40af;
+    font-weight: 700;
+    margin-bottom: 2px;
+  }
+  .prompt-verb {
+    font-size: clamp(1.4rem, 5.5vw, 2rem);
+    font-weight: 900;
+    color: #1e3a8a;
+    letter-spacing: 1px;
+    line-height: 1.1;
+  }
+  .prompt-example {
+    font-size: clamp(0.75rem, 2.5vw, 0.9rem);
+    color: #4b5563;
+    font-style: italic;
+    margin-top: 4px;
+    display: none;
+  }
+  .prompt-example.revealed { display: block; animation: bounce-in 0.4s ease; }
+
+  /* Tile grid */
+  .tile-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 6px;
+    width: 100%;
+    max-width: 520px;
+    padding: 4px;
+  }
+  @media (min-width: 480px) { .tile-grid { grid-template-columns: repeat(5, 1fr); } }
+  @media (min-width: 720px) { .tile-grid { grid-template-columns: repeat(6, 1fr); max-width: 600px; } }
+
+  .tile {
+    background: linear-gradient(135deg, #fef3c7, #fde68a);
+    border: 2px solid #f59e0b;
+    border-radius: 10px;
+    padding: 6px 2px;
+    font-size: clamp(0.7rem, 2.2vw, 0.85rem);
+    font-weight: 800;
+    color: #78350f;
+    text-align: center;
+    cursor: pointer;
+    box-shadow: 0 3px 0 #b45309, 0 4px 8px rgba(0,0,0,0.08);
+    transition: transform 0.15s, box-shadow 0.15s, opacity 0.3s;
+    font-family: inherit;
+    min-height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    touch-action: manipulation;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: clip;
+    line-height: 1;
+  }
+  .tile:active { transform: translateY(2px); box-shadow: 0 2px 0 #b45309, 0 3px 6px rgba(0,0,0,0.1); }
+  .tile.cleared {
+    animation: tile-clear 0.5s ease forwards;
+    pointer-events: none;
+  }
+  .tile.removed { display: none !important; }
+  .tile.wrong {
+    background: #fca5a5;
+    border-color: #dc2626;
+    color: #7f1d1d;
+    animation: shake 0.5s;
+  }
+  .tile.fade { opacity: 0.4; pointer-events: none; }
+
+  /* Sparkles */
+  .sparkle {
+    position: fixed;
+    pointer-events: none;
+    font-size: 2rem;
+    z-index: 40;
+    animation: sparkle-fly 1.2s ease-out forwards;
+  }
+
+  /* Feedback banner */
+  .feedback {
+    position: fixed;
+    top: 30%;
+    left: 50%;
+    transform: translate(-50%, -50%) scale(0);
+    background: white;
+    border: 6px solid #f59e0b;
+    border-radius: 28px;
+    padding: 30px 40px;
+    text-align: center;
+    z-index: 50;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+    pointer-events: none;
+    max-width: 90vw;
+  }
+  .feedback.show { animation: feedback-pop 1.4s ease forwards; }
+  .feedback-emoji { font-size: clamp(3rem, 12vw, 5rem); line-height: 1; }
+  .feedback-text { font-size: clamp(1.4rem, 5vw, 2rem); font-weight: 900; color: #1e40af; margin-top: 8px; }
+
+  /* Win overlay */
+  .overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    padding: 16px;
+  }
+  .overlay.show { display: flex; }
+  .overlay-card {
+    background: white;
+    border: 6px solid #fbbf24;
+    border-radius: 24px;
+    padding: 28px 22px;
+    text-align: center;
+    max-width: 420px;
+    width: 100%;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.4);
+    animation: pop-in 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  .overlay-emoji { font-size: 5rem; line-height: 1; }
+  .overlay h2 { font-size: clamp(1.6rem, 6vw, 2.2rem); color: #1e40af; margin: 10px 0; }
+  .overlay p { font-size: clamp(1rem, 3.5vw, 1.2rem); color: #4b5563; margin-bottom: 16px; }
+  .overlay-stars { font-size: 3rem; color: #f59e0b; margin: 8px 0; }
+  .btn {
+    background: linear-gradient(135deg, #f59e0b, #d97706);
+    color: white;
+    border: none;
+    border-radius: 16px;
+    padding: 14px 28px;
+    font-size: clamp(1.1rem, 4vw, 1.3rem);
+    font-weight: 800;
+    cursor: pointer;
+    box-shadow: 0 5px 0 #b45309;
+    margin: 6px;
+    font-family: inherit;
+    touch-action: manipulation;
+  }
+  .btn:active { transform: translateY(3px); box-shadow: 0 2px 0 #b45309; }
+  .btn.secondary { background: linear-gradient(135deg, #60a5fa, #2563eb); box-shadow: 0 5px 0 #1d4ed8; }
+  .btn.secondary:active { box-shadow: 0 2px 0 #1d4ed8; }
+
+  /* Start screen */
+  .start-card {
+    background: white;
+    border: 6px solid #fbbf24;
+    border-radius: 24px;
+    padding: 24px 20px;
+    text-align: center;
+    max-width: 420px;
+    width: 100%;
+    margin: auto;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.25);
+    animation: pop-in 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  .start-card .big-emoji { font-size: 5rem; }
+  .start-card h2 { font-size: clamp(1.6rem, 6vw, 2.2rem); color: #1e40af; margin: 8px 0; }
+  .start-card p { font-size: clamp(1rem, 3.5vw, 1.15rem); color: #4b5563; margin-bottom: 12px; line-height: 1.4; }
+
+  /* Animations */
+  @keyframes pop-in {
+    0% { transform: scale(0.5); opacity: 0; }
+    100% { transform: scale(1); opacity: 1; }
+  }
+  @keyframes bounce-in {
+    0% { transform: translateY(20px); opacity: 0; }
+    60% { transform: translateY(-6px); opacity: 1; }
+    100% { transform: translateY(0); }
+  }
+  @keyframes tile-clear {
+    0% { transform: scale(1) rotate(0); opacity: 1; }
+    50% { transform: scale(1.3) rotate(15deg); opacity: 0.8; }
+    100% { transform: scale(0) rotate(360deg); opacity: 0; }
+  }
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    20% { transform: translateX(-10px); }
+    40% { transform: translateX(10px); }
+    60% { transform: translateX(-8px); }
+    80% { transform: translateX(8px); }
+  }
+  @keyframes feedback-pop {
+    0% { transform: translate(-50%, -50%) scale(0); opacity: 0; }
+    20% { transform: translate(-50%, -50%) scale(1.2); opacity: 1; }
+    35% { transform: translate(-50%, -50%) scale(1); }
+    80% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+    100% { transform: translate(-50%, -50%) scale(0.8); opacity: 0; }
+  }
+  @keyframes sparkle-fly {
+    0% { transform: translate(0, 0) scale(0); opacity: 1; }
+    50% { opacity: 1; }
+    100% { transform: translate(var(--dx), var(--dy)) scale(1.5); opacity: 0; }
+  }
+  .bounce { animation: bounce-in 0.5s ease; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🧩 Tense Match!</h1>
+  <div class="subtitle">Tap the past tense to clear the tile</div>
+</header>
+
+<div class="scorebar" id="scorebar" style="display:none">
+  <div class="score-item">
+    <div class="score-label">Cleared</div>
+    <div class="score-value" id="scoreVal">0</div>
+  </div>
+  <div class="score-item">
+    <div class="score-label">Remaining</div>
+    <div class="score-value" id="remainingVal">36</div>
+  </div>
+  <div class="score-item">
+    <div class="score-label">Stars</div>
+    <div class="stars" id="starsVal">⭐ 0</div>
+  </div>
+</div>
+
+<!-- Start screen -->
+<div id="startScreen" class="start-card">
+  <div class="big-emoji">🧩</div>
+  <h2>Clear the Tiles!</h2>
+  <p>See a verb in <b>present tense</b>.<br>Tap the matching <b>past tense</b> tile &mdash; it disappears!</p>
+  <p style="font-size:0.9em;color:#1e40af"><b>36 verbs</b> &middot; clear them all to win!</p>
+  <button class="btn" id="startBtn">▶ Start Playing!</button>
+</div>
+
+<!-- Game screen -->
+<div id="gameArea" class="game-area" style="display:none">
+  <div class="prompt" id="prompt">
+    <div class="prompt-label">👉 Present tense:</div>
+    <div class="prompt-verb" id="promptVerb">see</div>
+    <div class="prompt-example" id="promptExample">"Yesterday I saw a dog."</div>
+  </div>
+  <div class="tile-grid" id="tileGrid"></div>
+</div>
+
+<!-- Feedback popup -->
+<div class="feedback" id="feedback">
+  <div class="feedback-emoji" id="feedbackEmoji">🎉</div>
+  <div class="feedback-text" id="feedbackText">Great!</div>
+</div>
+
+<!-- Win overlay -->
+<div class="overlay" id="winOverlay">
+  <div class="overlay-card">
+    <div class="overlay-emoji" id="winEmoji">🏆</div>
+    <h2 id="winTitle">Amazing!</h2>
+    <div class="overlay-stars" id="winStars">⭐⭐⭐⭐⭐</div>
+    <p id="winText">You cleared all the tiles!</p>
+    <button class="btn" id="playAgainBtn">🔁 Play Again</button>
+  </div>
+</div>
+
+<script>
+// Same 36 verbs from the homework
+const VERBS = [
+  // Sheet 1
+  { present: "see",     past: "saw",      example: '"Yesterday I <b>saw</b> a dog."' },
+  { present: "sit",     past: "sat",      example: '"She <b>sat</b> on the chair."' },
+  { present: "skip",    past: "skipped",  example: '"He <b>skipped</b> to school."' },
+  { present: "slip",    past: "slipped",  example: '"I <b>slipped</b> on a banana."' },
+  { present: "smile",   past: "smiled",   example: '"Mom <b>smiled</b> at me."' },
+  { present: "squirt",  past: "squirted", example: '"The whale <b>squirted</b> water!"' },
+  { present: "stop",    past: "stopped",  example: '"The car <b>stopped</b> at red."' },
+  { present: "talk",    past: "talked",   example: '"We <b>talked</b> on the phone."' },
+  { present: "tell",    past: "told",     example: '"Dad <b>told</b> me a story."' },
+  { present: "think",   past: "thought",  example: '"I <b>thought</b> about it."' },
+  { present: "try",     past: "tried",    example: '"She <b>tried</b> a cookie."' },
+  { present: "waggle",  past: "waggled",  example: '"The dog <b>waggled</b> its tail."' },
+  { present: "wander",  past: "wandered", example: '"We <b>wandered</b> in the woods."' },
+  { present: "watch",   past: "watched",  example: '"They <b>watched</b> a movie."' },
+  { present: "wear",    past: "wore",     example: '"I <b>wore</b> my new shoes."' },
+  // Sheet 2 — Unit 1-8
+  { present: "blow",    past: "blew",     example: '"The wind <b>blew</b> my hat off!"' },
+  { present: "carry",   past: "carried",  example: '"She <b>carried</b> the books."' },
+  { present: "clean",   past: "cleaned",  example: '"I <b>cleaned</b> my room."' },
+  { present: "cry",     past: "cried",    example: '"The baby <b>cried</b> last night."' },
+  { present: "do",      past: "did",      example: '"He <b>did</b> his homework."' },
+  { present: "eat",     past: "ate",      example: '"We <b>ate</b> pizza for dinner."' },
+  { present: "fall",    past: "fell",     example: '"I <b>fell</b> down on the floor."' },
+  { present: "get",     past: "got",      example: '"She <b>got</b> a new toy."' },
+  { present: "hide",    past: "hid",      example: '"The cat <b>hid</b> under the bed."' },
+  { present: "huff",    past: "huffed",   example: '"The dog <b>huffed</b> and puffed."' },
+  { present: "hug",     past: "hugged",   example: '"Mom <b>hugged</b> me tight."' },
+  { present: "kneel",   past: "knelt",    example: '"They <b>knelt</b> to pray."' },
+  { present: "look",    past: "looked",   example: '"I <b>looked</b> out the window."' },
+  { present: "make",    past: "made",     example: '"Dad <b>made</b> pancakes."' },
+  { present: "open",    past: "opened",   example: '"She <b>opened</b> the door."' },
+  { present: "prowl",   past: "prowled",  example: '"The cat <b>prowled</b> in the dark."' },
+  { present: "puff",    past: "puffed",   example: '"The dragon <b>puffed</b> smoke."' },
+  { present: "run",     past: "ran",      example: '"I <b>ran</b> fast at the park."' },
+  { present: "say",     past: "said",     example: '"He <b>said</b> hello."' },
+  { present: "scratch", past: "scratched",example: '"The cat <b>scratched</b> the post."' },
+  { present: "scrape",  past: "scraped",  example: '"I <b>scraped</b> my knee."' },
+];
+
+// Game state
+let queue = [];          // shuffled past tenses (the tiles)
+let queueIdx = 0;        // current verb index in queue
+let cleared = 0;         // tiles cleared
+let totalTiles = 0;
+let wrongAttempts = 0;
+let clearedPasts = new Set();  // past tenses already cleared this game
+
+// Shuffle helper
+function shuffle(arr) {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+// Web Audio chimes
+let audioCtx = null;
+function getCtx() {
+  if (!audioCtx) {
+    try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch(e) {}
+  }
+  return audioCtx;
+}
+function playTone(freq, duration = 0.15, type = "sine", volume = 0.15) {
+  const ctx = getCtx();
+  if (!ctx) return;
+  try {
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = type;
+    osc.frequency.value = freq;
+    gain.gain.setValueAtTime(volume, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start();
+    osc.stop(ctx.currentTime + duration);
+  } catch(e) {}
+}
+function playCorrect() {
+  playTone(523, 0.1);
+  setTimeout(() => playTone(659, 0.1), 90);
+  setTimeout(() => playTone(784, 0.18), 180);
+}
+function playWrong() {
+  playTone(220, 0.25, "sawtooth", 0.1);
+}
+function playClear() {
+  // special chime when a tile disappears
+  playTone(660, 0.1);
+  setTimeout(() => playTone(880, 0.15), 90);
+}
+function playWin() {
+  [523, 659, 784, 1047].forEach((f, i) => setTimeout(() => playTone(f, 0.15), i * 130));
+}
+
+// Web Speech — speak the past tense word
+function speakWord(word) {
+  if (!("speechSynthesis" in window)) return;
+  try {
+    window.speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(word);
+    u.lang = "en-US";
+    u.rate = 0.85;
+    u.pitch = 1.05;
+    u.volume = 1.0;
+    window.speechSynthesis.speak(u);
+  } catch (e) {}
+}
+
+// Sparkle burst
+function sparkleBurst(x, y, count = 12) {
+  const emojis = ["⭐", "✨", "🌟", "💫", "🎉"];
+  for (let i = 0; i < count; i++) {
+    const el = document.createElement("div");
+    el.className = "sparkle";
+    el.textContent = emojis[Math.floor(Math.random() * emojis.length)];
+    el.style.left = x + "px";
+    el.style.top = y + "px";
+    const angle = (Math.PI * 2 * i) / count + Math.random() * 0.5;
+    const dist = 80 + Math.random() * 80;
+    el.style.setProperty("--dx", Math.cos(angle) * dist + "px");
+    el.style.setProperty("--dy", Math.sin(angle) * dist + "px");
+    document.body.appendChild(el);
+    setTimeout(() => el.remove(), 1300);
+  }
+}
+
+function updateScore() {
+  document.getElementById("scoreVal").textContent = cleared;
+  document.getElementById("remainingVal").textContent = totalTiles - cleared;
+  const stars = Math.floor(cleared / 5);
+  document.getElementById("starsVal").textContent = "⭐ " + stars;
+}
+
+// Start game
+document.getElementById("startBtn").addEventListener("click", startGame);
+function startGame() {
+  getCtx();
+  cleared = 0;
+  wrongAttempts = 0;
+  queueIdx = 0;
+  clearedPasts = new Set();
+  // Shuffle the verbs to determine the order of presents to show
+  queue = shuffle(VERBS);
+  totalTiles = queue.length;
+  document.getElementById("startScreen").style.display = "none";
+  document.getElementById("gameArea").style.display = "flex";
+  document.getElementById("scorebar").style.display = "flex";
+  updateScore();
+  nextRound();
+}
+
+function nextRound() {
+  if (queueIdx >= queue.length) {
+    showWin();
+    return;
+  }
+  const verb = queue[queueIdx];
+
+  // Update prompt (just the present tense; example hidden)
+  const promptEl = document.getElementById("prompt");
+  promptEl.classList.remove("bounce");
+  void promptEl.offsetWidth;
+  promptEl.classList.add("bounce");
+  document.getElementById("promptVerb").textContent = verb.present;
+  const exEl = document.getElementById("promptExample");
+  exEl.classList.remove("revealed");
+  exEl.innerHTML = verb.example;
+
+  // Build tile grid: ALL past tenses EXCEPT those already cleared this game
+  const tileGrid = document.getElementById("tileGrid");
+  tileGrid.innerHTML = "";
+
+  // Build list: past tenses not yet cleared
+  const remaining = VERBS.map(v => v.past).filter(p => !clearedPasts.has(p));
+  // Shuffle to randomize placement
+  const shuffled = shuffle(remaining);
+
+  shuffled.forEach(past => {
+    const tile = document.createElement("button");
+    tile.className = "tile";
+    tile.type = "button";
+    tile.textContent = past;
+    tile.dataset.past = past;
+    tile.addEventListener("click", (e) => handleTileClick(tile, verb));
+    tileGrid.appendChild(tile);
+  });
+}
+
+function handleTileClick(tile, currentVerb) {
+  const picked = tile.dataset.past;
+  const correct = currentVerb.past;
+  const rect = tile.getBoundingClientRect();
+  const cx = rect.left + rect.width / 2;
+  const cy = rect.top + rect.height / 2;
+
+  if (picked === correct) {
+    // CORRECT — clear the tile
+    tile.classList.add("cleared");
+    cleared += 1;
+    clearedPasts.add(picked);  // remember so this verb doesn't reappear next round
+    playClear();
+    sparkleBurst(cx, cy, 10);
+    // Show the example sentence for this verb
+    document.getElementById("promptExample").classList.add("revealed");
+    // Speak the past tense
+    speakWord(correct);
+    updateScore();
+    // After the spin animation finishes, remove the tile from layout so it doesn't take a grid slot
+    setTimeout(() => { tile.classList.add("removed"); }, 500);
+    // Move to next verb after a beat
+    queueIdx++;
+    setTimeout(nextRound, 1100);
+  } else {
+    // WRONG — shake the tile, count attempt, but don't clear
+    tile.classList.add("wrong");
+    wrongAttempts += 1;
+    playWrong();
+    // Briefly fade others to focus attention
+    document.querySelectorAll(".tile").forEach(t => {
+      if (t !== tile) t.classList.add("fade");
+    });
+    showFeedback("💪", "Try again!");
+    // After a beat, restore
+    setTimeout(() => {
+      tile.classList.remove("wrong");
+      document.querySelectorAll(".tile").forEach(t => t.classList.remove("fade"));
+    }, 800);
+  }
+}
+
+function showFeedback(emoji, text) {
+  const el = document.getElementById("feedback");
+  document.getElementById("feedbackEmoji").textContent = emoji;
+  document.getElementById("feedbackText").textContent = text;
+  el.classList.remove("show");
+  void el.offsetWidth;
+  el.classList.add("show");
+}
+
+function showWin() {
+  playWin();
+  const total = totalTiles;
+  const stars = Math.max(1, Math.floor((cleared / total) * 5));
+  const starStr = "⭐".repeat(stars) + "☆".repeat(Math.max(0, 5 - stars));
+  let title, emoji, msg;
+  if (wrongAttempts === 0) { title = "Perfect!"; emoji = "🏆"; msg = "You cleared every tile with no wrong picks! 🌟"; }
+  else if (wrongAttempts <= 3) { title = "Awesome!"; emoji = "🥇"; msg = "Almost perfect! Great work!"; }
+  else if (wrongAttempts <= 8) { title = "Good job!"; emoji = "🎖️"; msg = "You're getting really good at this!"; }
+  else { title = "You did it!"; emoji = "🌱"; msg = "All tiles cleared! Try again for fewer mistakes."; }
+  document.getElementById("winEmoji").textContent = emoji;
+  document.getElementById("winTitle").textContent = title;
+  document.getElementById("winStars").textContent = starStr;
+  document.getElementById("winText").textContent = msg + ` (${wrongAttempts} wrong taps)`;
+  document.getElementById("winOverlay").classList.add("show");
+  // Big sparkle burst in center
+  sparkleBurst(window.innerWidth / 2, window.innerHeight / 2, 30);
+}
+
+document.getElementById("playAgainBtn").addEventListener("click", () => {
+  document.getElementById("winOverlay").classList.remove("show");
+  document.getElementById("gameArea").style.display = "none";
+  document.getElementById("scorebar").style.display = "none";
+  document.getElementById("startScreen").style.display = "block";
+});
+</script>
+
+</body>
+</html>

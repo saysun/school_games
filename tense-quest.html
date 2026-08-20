@@ -1,0 +1,707 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<title>⏰ Tense Quest — Past Tense Match Game</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; }
+  html, body {
+    height: 100%;
+    overflow-x: hidden;
+    font-family: 'Comic Sans MS', 'Chalkboard SE', 'Marker Felt', system-ui, sans-serif;
+    background: linear-gradient(135deg, #fef3c7 0%, #fde68a 50%, #fcd34d 100%);
+    color: #1f2937;
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    padding: 12px;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  /* Header */
+  header {
+    text-align: center;
+    padding: 8px 4px 4px;
+  }
+  h1 {
+    font-size: clamp(1.6rem, 6vw, 2.4rem);
+    color: #b91c1c;
+    text-shadow: 2px 2px 0 #fbbf24, 4px 4px 0 rgba(0,0,0,0.1);
+    margin-bottom: 4px;
+    letter-spacing: 0.5px;
+  }
+  .subtitle {
+    font-size: clamp(0.85rem, 3vw, 1.05rem);
+    color: #78350f;
+    font-weight: 600;
+  }
+
+  /* Score bar */
+  .scorebar {
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    background: white;
+    border-radius: 16px;
+    padding: 10px 8px;
+    margin: 10px 0;
+    box-shadow: 0 4px 0 #d97706, 0 6px 12px rgba(0,0,0,0.1);
+    border: 3px solid #f59e0b;
+  }
+  .score-item { text-align: center; flex: 1; }
+  .score-label { font-size: clamp(0.7rem, 2.5vw, 0.85rem); color: #6b7280; font-weight: 600; }
+  .score-value {
+    font-size: clamp(1.4rem, 5vw, 2rem);
+    font-weight: 800;
+    color: #b91c1c;
+    line-height: 1;
+  }
+  .stars { color: #f59e0b; font-size: clamp(1.1rem, 4vw, 1.4rem); }
+
+  /* Game area */
+  .game-area {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 14px;
+    padding: 8px 0;
+  }
+
+  /* Question prompt */
+  .prompt {
+    background: white;
+    border: 4px solid #3b82f6;
+    border-radius: 20px;
+    padding: 14px 18px;
+    text-align: center;
+    box-shadow: 0 5px 0 #1d4ed8, 0 8px 16px rgba(0,0,0,0.12);
+    width: 100%;
+    max-width: 480px;
+    animation: pop-in 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  .prompt-label {
+    font-size: clamp(0.85rem, 3vw, 1rem);
+    color: #1e40af;
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+  .prompt-verb {
+    font-size: clamp(2rem, 8vw, 3rem);
+    font-weight: 900;
+    color: #1e3a8a;
+    letter-spacing: 1px;
+  }
+  .prompt-example {
+    font-size: clamp(0.85rem, 3vw, 1rem);
+    color: #4b5563;
+    font-style: italic;
+    margin-top: 6px;
+    display: none;
+  }
+  .prompt-example.revealed { display: block; animation: bounce-in 0.4s ease; }
+
+  /* Choices grid */
+  .choices {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+    width: 100%;
+    max-width: 480px;
+  }
+  @media (min-width: 540px) { .choices { grid-template-columns: repeat(3, 1fr); } }
+
+  .choice {
+    background: white;
+    border: 4px solid #8b5cf6;
+    border-radius: 18px;
+    padding: 18px 8px;
+    font-size: clamp(1.3rem, 5vw, 1.6rem);
+    font-weight: 800;
+    color: #5b21b6;
+    text-align: center;
+    cursor: pointer;
+    box-shadow: 0 5px 0 #6d28d9, 0 8px 14px rgba(0,0,0,0.1);
+    transition: transform 0.12s, box-shadow 0.12s;
+    font-family: inherit;
+    min-height: 70px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    -webkit-user-select: none;
+    touch-action: manipulation;
+  }
+  .choice:active { transform: translateY(3px); box-shadow: 0 2px 0 #6d28d9, 0 4px 8px rgba(0,0,0,0.1); }
+  .choice.correct { background: #86efac; border-color: #16a34a; color: #14532d; animation: wiggle 0.6s; }
+  .choice.wrong { background: #fca5a5; border-color: #dc2626; color: #7f1d1d; animation: shake 0.5s; }
+  .choice.fade { opacity: 0.4; pointer-events: none; }
+
+  /* Feedback banner */
+  .feedback {
+    position: fixed;
+    top: 30%;
+    left: 50%;
+    transform: translate(-50%, -50%) scale(0);
+    background: white;
+    border: 6px solid #f59e0b;
+    border-radius: 28px;
+    padding: 30px 40px;
+    text-align: center;
+    z-index: 50;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+    pointer-events: none;
+    max-width: 90vw;
+  }
+  .feedback.show { animation: feedback-pop 1.4s ease forwards; }
+  .feedback-emoji { font-size: clamp(3rem, 12vw, 5rem); line-height: 1; }
+  .feedback-text { font-size: clamp(1.4rem, 5vw, 2rem); font-weight: 900; color: #b91c1c; margin-top: 8px; }
+
+  /* Confetti / sparkles */
+  .sparkle {
+    position: fixed;
+    pointer-events: none;
+    font-size: 2rem;
+    z-index: 40;
+    animation: sparkle-fly 1.2s ease-out forwards;
+  }
+
+  /* Win screen */
+  .overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    padding: 16px;
+  }
+  .overlay.show { display: flex; }
+  .overlay-card {
+    background: white;
+    border: 6px solid #fbbf24;
+    border-radius: 24px;
+    padding: 28px 22px;
+    text-align: center;
+    max-width: 420px;
+    width: 100%;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.4);
+    animation: pop-in 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  .overlay-emoji { font-size: 5rem; line-height: 1; }
+  .overlay h2 { font-size: clamp(1.6rem, 6vw, 2.2rem); color: #b91c1c; margin: 10px 0; }
+  .overlay p { font-size: clamp(1rem, 3.5vw, 1.2rem); color: #4b5563; margin-bottom: 16px; }
+  .overlay-stars { font-size: 3rem; color: #f59e0b; margin: 8px 0; }
+  .review-section {
+    margin: 14px 0 18px;
+    padding: 14px 10px;
+    background: #fef3c7;
+    border: 3px dashed #f59e0b;
+    border-radius: 16px;
+    text-align: left;
+  }
+  .review-section h3 {
+    font-size: clamp(1.1rem, 4vw, 1.35rem);
+    color: #b45309;
+    margin: 0 0 4px;
+    text-align: center;
+  }
+  .review-help {
+    font-size: clamp(0.8rem, 3vw, 0.95rem) !important;
+    color: #92400e !important;
+    margin: 0 0 10px !important;
+    text-align: center;
+    font-style: italic;
+  }
+  .review-list {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+    max-height: 240px;
+    overflow-y: auto;
+    padding: 4px;
+  }
+  .review-item {
+    background: white;
+    border: 2px solid #fbbf24;
+    border-radius: 12px;
+    padding: 8px 6px;
+    text-align: center;
+    cursor: pointer;
+    transition: transform 0.1s, border-color 0.1s;
+    font-family: inherit;
+  }
+  .review-item:active { transform: scale(0.96); }
+  .review-item:hover { border-color: #16a34a; background: #f0fdf4; }
+  .review-present {
+    font-size: clamp(0.85rem, 3vw, 1rem);
+    color: #6b7280;
+    font-weight: 600;
+  }
+  .review-past {
+    font-size: clamp(1.1rem, 4vw, 1.3rem);
+    color: #16a34a;
+    font-weight: 800;
+    margin-top: 2px;
+  }
+  .review-picked {
+    font-size: clamp(0.7rem, 2.5vw, 0.85rem);
+    color: #dc2626;
+    text-decoration: line-through;
+    margin-top: 1px;
+  }
+  .btn {
+    background: linear-gradient(135deg, #f59e0b, #d97706);
+    color: white;
+    border: none;
+    border-radius: 16px;
+    padding: 14px 28px;
+    font-size: clamp(1.1rem, 4vw, 1.3rem);
+    font-weight: 800;
+    cursor: pointer;
+    box-shadow: 0 5px 0 #b45309;
+    margin: 6px;
+    font-family: inherit;
+    touch-action: manipulation;
+  }
+  .btn:active { transform: translateY(3px); box-shadow: 0 2px 0 #b45309; }
+  .btn.secondary { background: linear-gradient(135deg, #60a5fa, #2563eb); box-shadow: 0 5px 0 #1d4ed8; }
+  .btn.secondary:active { box-shadow: 0 2px 0 #1d4ed8; }
+
+  /* Start screen */
+  .start-card {
+    background: white;
+    border: 6px solid #fbbf24;
+    border-radius: 24px;
+    padding: 24px 20px;
+    text-align: center;
+    max-width: 420px;
+    width: 100%;
+    margin: auto;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.25);
+    animation: pop-in 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  .start-card .big-emoji { font-size: 5rem; }
+  .start-card h2 { font-size: clamp(1.6rem, 6vw, 2.2rem); color: #b91c1c; margin: 8px 0; }
+  .start-card p { font-size: clamp(1rem, 3.5vw, 1.15rem); color: #4b5563; margin-bottom: 12px; line-height: 1.4; }
+  .verb-preview {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 6px;
+    margin: 14px 0;
+  }
+  .verb-chip {
+    background: #fef3c7;
+    border: 2px solid #f59e0b;
+    border-radius: 10px;
+    padding: 4px 10px;
+    font-size: clamp(0.85rem, 3vw, 1rem);
+    font-weight: 700;
+    color: #78350f;
+  }
+  .mode-toggle {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    margin: 14px 0;
+  }
+  .mode-btn {
+    background: #e5e7eb;
+    border: 3px solid #9ca3af;
+    border-radius: 14px;
+    padding: 10px 14px;
+    font-size: clamp(0.95rem, 3.5vw, 1.1rem);
+    font-weight: 800;
+    color: #374151;
+    cursor: pointer;
+    font-family: inherit;
+    touch-action: manipulation;
+  }
+  .mode-btn.active {
+    background: #ddd6fe;
+    border-color: #7c3aed;
+    color: #5b21b6;
+  }
+
+  /* Animations */
+  @keyframes pop-in {
+    0% { transform: scale(0.5); opacity: 0; }
+    100% { transform: scale(1); opacity: 1; }
+  }
+  @keyframes wiggle {
+    0%, 100% { transform: rotate(0); }
+    25% { transform: rotate(-6deg) scale(1.08); }
+    75% { transform: rotate(6deg) scale(1.08); }
+  }
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    20% { transform: translateX(-10px); }
+    40% { transform: translateX(10px); }
+    60% { transform: translateX(-8px); }
+    80% { transform: translateX(8px); }
+  }
+  @keyframes feedback-pop {
+    0% { transform: translate(-50%, -50%) scale(0); opacity: 0; }
+    20% { transform: translate(-50%, -50%) scale(1.2); opacity: 1; }
+    35% { transform: translate(-50%, -50%) scale(1); }
+    80% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+    100% { transform: translate(-50%, -50%) scale(0.8); opacity: 0; }
+  }
+  @keyframes sparkle-fly {
+    0% { transform: translate(0, 0) scale(0); opacity: 1; }
+    50% { opacity: 1; }
+    100% { transform: translate(var(--dx), var(--dy)) scale(1.5); opacity: 0; }
+  }
+  @keyframes bounce-in {
+    0% { transform: translateY(30px); opacity: 0; }
+    60% { transform: translateY(-10px); opacity: 1; }
+    100% { transform: translateY(0); }
+  }
+  .bounce { animation: bounce-in 0.5s ease; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>⏰ Tense Quest!</h1>
+  <div class="subtitle">Match the verb to its past tense</div>
+</header>
+
+<div class="scorebar" id="scorebar" style="display:none">
+  <div class="score-item">
+    <div class="score-label">Score</div>
+    <div class="score-value" id="scoreVal">0</div>
+  </div>
+  <div class="score-item">
+    <div class="score-label">Round</div>
+    <div class="score-value" id="roundVal">1/15</div>
+  </div>
+  <div class="score-item">
+    <div class="score-label">Stars</div>
+    <div class="stars" id="starsVal">⭐ 0</div>
+  </div>
+</div>
+
+<!-- Start screen -->
+<div id="startScreen" class="start-card">
+  <div class="big-emoji">📚</div>
+  <h2>Past Tense Match!</h2>
+  <p>See the verb in <b>present tense</b>.<br>Tap its <b>past tense</b> form!<br><span style="font-size:0.85em;color:#92400e">36 rounds &middot; all 36 verbs from your homework</span></p>
+  <div class="verb-preview" id="verbPreview"></div>
+  <div class="mode-toggle">
+    <button class="mode-btn" id="modeEasy" data-mode="easy">🎯 Easy (2 choices)</button>
+    <button class="mode-btn active" id="modeMed" data-mode="medium">🌟 Medium (3 choices)</button>
+    <button class="mode-btn" id="modeHard" data-mode="hard">🚀 Hard (4 choices)</button>
+  </div>
+  <button class="btn" id="startBtn">▶ Start Playing!</button>
+</div>
+
+<!-- Game screen -->
+<div id="gameArea" class="game-area" style="display:none">
+  <div class="prompt" id="prompt">
+    <div class="prompt-label">👉 Present tense:</div>
+    <div class="prompt-verb" id="promptVerb">see</div>
+    <div class="prompt-example" id="promptExample">"I see a cat."</div>
+  </div>
+  <div class="choices" id="choices"></div>
+</div>
+
+<!-- Feedback popup -->
+<div class="feedback" id="feedback">
+  <div class="feedback-emoji" id="feedbackEmoji">🎉</div>
+  <div class="feedback-text" id="feedbackText">Great!</div>
+</div>
+
+<!-- Win overlay -->
+<div class="overlay" id="winOverlay">
+  <div class="overlay-card">
+    <div class="overlay-emoji" id="winEmoji">🏆</div>
+    <h2 id="winTitle">Amazing!</h2>
+    <div class="overlay-stars" id="winStars">⭐⭐⭐</div>
+    <p id="winText">You finished all the rounds!</p>
+
+    <!-- Review-of-wrongs section (populated by JS, hidden if perfect) -->
+    <div id="reviewSection" class="review-section" style="display:none">
+      <h3>📝 Words to Practice</h3>
+      <p class="review-help">Tap any word to hear it!</p>
+      <div id="reviewList" class="review-list"></div>
+    </div>
+
+    <button class="btn" id="playAgainBtn">🔁 Play Again</button>
+  </div>
+</div>
+
+<script>
+// Verbs from both homework sheets — Units 1-8
+const VERBS = [
+  // Sheet 1
+  { present: "see",     past: "saw",      example: '"Yesterday I <b>saw</b> a dog."' },
+  { present: "sit",     past: "sat",      example: '"She <b>sat</b> on the chair."' },
+  { present: "skip",    past: "skipped",  example: '"He <b>skipped</b> to school."' },
+  { present: "slip",    past: "slipped",  example: '"I <b>slipped</b> on a banana."' },
+  { present: "smile",   past: "smiled",   example: '"Mom <b>smiled</b> at me."' },
+  { present: "squirt",  past: "squirted", example: '"The whale <b>squirted</b> water!"' },
+  { present: "stop",    past: "stopped",  example: '"The car <b>stopped</b> at red."' },
+  { present: "talk",    past: "talked",   example: '"We <b>talked</b> on the phone."' },
+  { present: "tell",    past: "told",     example: '"Dad <b>told</b> me a story."' },
+  { present: "think",   past: "thought",  example: '"I <b>thought</b> about it."' },
+  { present: "try",     past: "tried",    example: '"She <b>tried</b> a cookie."' },
+  { present: "waggle",  past: "waggled",  example: '"The dog <b>waggled</b> its tail."' },
+  { present: "wander",  past: "wandered", example: '"We <b>wandered</b> in the woods."' },
+  { present: "watch",   past: "watched",  example: '"They <b>watched</b> a movie."' },
+  { present: "wear",    past: "wore",     example: '"I <b>wore</b> my new shoes."' },
+  // Sheet 2 — Unit 1-8
+  { present: "blow",    past: "blew",     example: '"The wind <b>blew</b> my hat off!"' },
+  { present: "carry",   past: "carried",  example: '"She <b>carried</b> the books."' },
+  { present: "clean",   past: "cleaned",  example: '"I <b>cleaned</b> my room."' },
+  { present: "cry",     past: "cried",    example: '"The baby <b>cried</b> last night."' },
+  { present: "do",      past: "did",      example: '"He <b>did</b> his homework."' },
+  { present: "eat",     past: "ate",      example: '"We <b>ate</b> pizza for dinner."' },
+  { present: "fall",    past: "fell",     example: '"I <b>fell</b> down on the floor."' },
+  { present: "get",     past: "got",      example: '"She <b>got</b> a new toy."' },
+  { present: "hide",    past: "hid",      example: '"The cat <b>hid</b> under the bed."' },
+  { present: "huff",    past: "huffed",   example: '"The dog <b>huffed</b> and puffed."' },
+  { present: "hug",     past: "hugged",   example: '"Mom <b>hugged</b> me tight."' },
+  { present: "kneel",   past: "knelt",    example: '"They <b>knelt</b> to pray."' },
+  { present: "look",    past: "looked",   example: '"I <b>looked</b> out the window."' },
+  { present: "make",    past: "made",     example: '"Dad <b>made</b> pancakes."' },
+  { present: "open",    past: "opened",   example: '"She <b>opened</b> the door."' },
+  { present: "prowl",   past: "prowled",  example: '"The cat <b>prowled</b> in the dark."' },
+  { present: "puff",    past: "puffed",   example: '"The dragon <b>puffed</b> smoke."' },
+  { present: "run",     past: "ran",      example: '"I <b>ran</b> fast at the park."' },
+  { present: "say",     past: "said",     example: '"He <b>said</b> hello."' },
+  { present: "scratch", past: "scratched",example: '"The cat <b>scratched</b> the post."' },
+  { present: "scrape",  past: "scraped",  example: '"I <b>scraped</b> my knee."' },
+];
+
+let mode = "medium"; // "easy"=2, "medium"=3, "hard"=4 choices
+let queue = [];
+let currentIdx = 0;
+let score = 0;
+let totalRounds = 0;
+let answered = false;
+let wrongAnswers = [];   // {present, past, picked} for the post-test review
+let attempted = [];      // every verb attempted (for context)
+
+// Shuffle helper
+function shuffle(arr) {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+// Sound removed — game is silent.
+
+// Sparkle burst
+function sparkleBurst(x, y, count = 12) {
+  const emojis = ["⭐", "✨", "🌟", "💫", "🎉"];
+  for (let i = 0; i < count; i++) {
+    const el = document.createElement("div");
+    el.className = "sparkle";
+    el.textContent = emojis[Math.floor(Math.random() * emojis.length)];
+    el.style.left = x + "px";
+    el.style.top = y + "px";
+    const angle = (Math.PI * 2 * i) / count + Math.random() * 0.5;
+    const dist = 80 + Math.random() * 80;
+    el.style.setProperty("--dx", Math.cos(angle) * dist + "px");
+    el.style.setProperty("--dy", Math.sin(angle) * dist + "px");
+    document.body.appendChild(el);
+    setTimeout(() => el.remove(), 1300);
+  }
+}
+
+// Init preview chips — show first 10 as a teaser
+function renderPreview() {
+  const el = document.getElementById("verbPreview");
+  el.innerHTML = VERBS.slice(0, 10).map(v =>
+    `<span class="verb-chip">${v.present} → ${v.past}</span>`
+  ).join("");
+}
+
+// Mode toggle
+document.getElementById("modeEasy").addEventListener("click", () => setMode("easy"));
+document.getElementById("modeMed").addEventListener("click", () => setMode("medium"));
+document.getElementById("modeHard").addEventListener("click", () => setMode("hard"));
+function setMode(m) {
+  mode = m;
+  document.getElementById("modeEasy").classList.toggle("active", m === "easy");
+  document.getElementById("modeMed").classList.toggle("active", m === "medium");
+  document.getElementById("modeHard").classList.toggle("active", m === "hard");
+}
+
+// Start game
+document.getElementById("startBtn").addEventListener("click", startGame);
+function startGame() {
+  score = 0;
+  currentIdx = 0;
+  wrongAnswers = [];
+  attempted = [];
+  // Play all 36 verbs each round (shuffled, no repeats in one game)
+  queue = shuffle(VERBS);
+  totalRounds = queue.length;
+  document.getElementById("startScreen").style.display = "none";
+  document.getElementById("gameArea").style.display = "flex";
+  document.getElementById("scorebar").style.display = "flex";
+  updateScore();
+  nextRound();
+}
+
+function updateScore() {
+  document.getElementById("scoreVal").textContent = score;
+  document.getElementById("roundVal").textContent = `${Math.min(currentIdx + 1, totalRounds)}/${totalRounds}`;
+  const stars = Math.floor(score / 3);
+  document.getElementById("starsVal").textContent = "⭐ " + stars;
+}
+
+function nextRound() {
+  if (currentIdx >= queue.length) {
+    showWin();
+    return;
+  }
+  answered = false;
+  const verb = queue[currentIdx];
+  const correct = verb.past;
+  // Track that this verb was attempted (used for review totals)
+  attempted.push({ present: verb.present, past: verb.past });
+  const numChoices = mode === "easy" ? 2 : mode === "medium" ? 3 : 4;
+
+  // Build choices: 1 correct + (n-1) distractors from OTHER verbs
+  const otherPasts = shuffle(VERBS.filter(v => v.past !== correct).map(v => v.past));
+  const choices = shuffle([correct, ...otherPasts.slice(0, numChoices - 1)]);
+
+  // Update prompt
+  const promptEl = document.getElementById("prompt");
+  promptEl.classList.remove("bounce");
+  void promptEl.offsetWidth; // reflow to restart animation
+  promptEl.classList.add("bounce");
+  document.getElementById("promptVerb").textContent = verb.present;
+  // Hide example until they answer — keeps the test honest
+  const exEl = document.getElementById("promptExample");
+  exEl.classList.remove("revealed");
+  exEl.innerHTML = verb.example;
+
+  // Update choices
+  const cEl = document.getElementById("choices");
+  cEl.innerHTML = "";
+  choices.forEach(c => {
+    const btn = document.createElement("button");
+    btn.className = "choice";
+    btn.textContent = c;
+    btn.addEventListener("click", (e) => handleChoice(c, correct, btn, e, verb));
+    cEl.appendChild(btn);
+  });
+}
+
+function handleChoice(picked, correct, btn, ev, verb) {
+  if (answered) return;
+  answered = true;
+  const rect = btn.getBoundingClientRect();
+  const cx = rect.left + rect.width / 2;
+  const cy = rect.top + rect.height / 2;
+
+  if (picked === correct) {
+    btn.classList.add("correct");
+    score += 1;
+    sparkleBurst(cx, cy, 14);
+    showFeedback("🎉", "Yay!");
+    document.getElementById("promptExample").classList.add("revealed");
+    currentIdx++;
+    setTimeout(() => { updateScore(); nextRound(); }, 1500);
+  } else {
+    btn.classList.add("wrong");
+    // Record miss for post-test review (only record each verb once even if replayed)
+    if (!wrongAnswers.find(w => w.present === verb.present)) {
+      wrongAnswers.push({ present: verb.present, past: verb.past, picked });
+    }
+    // Highlight correct one
+    document.querySelectorAll(".choice").forEach(b => {
+      if (b.textContent === correct) b.classList.add("correct");
+      else b.classList.add("fade");
+    });
+    showFeedback("💪", "Try again!");
+    document.getElementById("promptExample").classList.add("revealed");
+    // Move on after a beat (still count the round)
+    currentIdx++;
+    setTimeout(() => { updateScore(); nextRound(); }, 2200);
+  }
+}
+
+function showFeedback(emoji, text) {
+  const el = document.getElementById("feedback");
+  document.getElementById("feedbackEmoji").textContent = emoji;
+  document.getElementById("feedbackText").textContent = text;
+  el.classList.remove("show");
+  void el.offsetWidth;
+  el.classList.add("show");
+}
+
+function showWin() {
+  const total = totalRounds;
+  const pct = score / total;
+  const stars = Math.floor((score / total) * 5);
+  const starStr = "⭐".repeat(Math.max(1, stars)) + "☆".repeat(Math.max(0, 5 - stars));
+  let title, emoji, msg;
+  if (pct === 1) { title = "Perfect!"; emoji = "🏆"; msg = "You got every single one right! You are a tense superstar! 🌟"; }
+  else if (pct >= 0.8) { title = "Awesome!"; emoji = "🥇"; msg = "Almost perfect! Great work!"; }
+  else if (pct >= 0.6) { title = "Good job!"; emoji = "🎖️"; msg = "You're getting really good at this!"; }
+  else { title = "Keep trying!"; emoji = "🌱"; msg = "Practice makes perfect — try again!"; }
+  document.getElementById("winEmoji").textContent = emoji;
+  document.getElementById("winTitle").textContent = title;
+  document.getElementById("winStars").textContent = starStr;
+  document.getElementById("winText").textContent = msg + ` (${score}/${total} correct)`;
+
+  // Populate the review-of-wrongs section
+  const reviewSection = document.getElementById("reviewSection");
+  const reviewList = document.getElementById("reviewList");
+  reviewList.innerHTML = "";
+  if (wrongAnswers.length > 0) {
+    reviewSection.style.display = "block";
+    wrongAnswers.forEach(w => {
+      const item = document.createElement("button");
+      item.className = "review-item";
+      item.type = "button";
+      item.innerHTML = `
+        <div class="review-present">${w.present}</div>
+        <div class="review-past">→ ${w.past}</div>
+        <div class="review-picked">you picked: ${w.picked}</div>
+      `;
+      reviewList.appendChild(item);
+    });
+  } else {
+    reviewSection.style.display = "none";
+  }
+
+  document.getElementById("winOverlay").classList.add("show");
+  // Big sparkle burst in center
+  sparkleBurst(window.innerWidth / 2, window.innerHeight / 2, 30);
+}
+
+document.getElementById("playAgainBtn").addEventListener("click", () => {
+  document.getElementById("winOverlay").classList.remove("show");
+  document.getElementById("gameArea").style.display = "none";
+  document.getElementById("scorebar").style.display = "none";
+  document.getElementById("startScreen").style.display = "block";
+  // Reset review state for the next game
+  document.getElementById("reviewSection").style.display = "none";
+  document.getElementById("reviewList").innerHTML = "";
+  wrongAnswers = [];
+  attempted = [];
+});
+
+// Boot
+renderPreview();
+</script>
+
+</body>
+</html>
